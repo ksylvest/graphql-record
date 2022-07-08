@@ -1,0 +1,64 @@
+version: 2.1
+orbs:
+  ruby: circleci/ruby@1.8.0
+
+executors:
+  default:
+    docker:
+      - image: cimg/ruby:3.1.2
+      - image: cimg/postgres:14.2
+        environment:
+          POSTGRES_USER: circleci
+          POSTGRES_DB: dummy_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+    environment:
+      RAILS_ENV: test
+      RACK_ENV: test
+      PGHOST: localhost
+
+jobs:
+  rspec:
+    executor: default
+    steps:
+      - checkout
+      - ruby/install-deps
+      - run: dockerize -wait tcp://localhost:5432 -timeout 2m
+      - run: cd spec/dummy && rake db:schema:load
+      - ruby/rspec-test
+      - run: |
+          curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-$CC_TEST_REPORTER_VERSION > ./cc-test-reporter
+          chmod +x ./cc-test-reporter
+          ./cc-test-reporter format-coverage -t simplecov coverage/coverage.json
+          ./cc-test-reporter upload-coverage
+
+  rubocop:
+    executor: default
+    steps:
+      - checkout
+      - ruby/install-deps
+      - ruby/rubocop-check
+  release:
+    executor: default
+    steps:
+      - checkout
+      - ruby/install-deps
+      - run: bundle exec rake release
+
+workflows:
+  version: 2.1
+  build:
+    jobs:
+      - rspec
+      - rubocop
+  publish:
+    when:
+      and:
+        - equal: [main, << pipeline.git.branch >>]
+        - matches:
+            pattern: /^v\d+\.\d+\.\d+$/
+            value: << pipeline.git.tag >>
+    jobs:
+      - release:
+          requires:
+            - rspec
+            - rubocop
