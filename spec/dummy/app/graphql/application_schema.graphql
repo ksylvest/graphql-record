@@ -1,0 +1,34 @@
+type ActiveStorageAttached {
+  filename: String!
+  id: String!
+}
+
+type Actor {
+  id: ID!
+  name: String!
+  photos: [ActiveStorageAttached!]!
+}
+
+type Film {
+  id: ID!
+  name: String!
+  release: ISO8601Date!
+  studio: Studio!
+}
+
+"""
+An ISO 8601-encoded date
+"""
+scalar ISO8601Date
+
+type Query {
+  actors: [Actor!]!
+  films: [Film!]!
+  studios: [Studio!]!
+}
+
+type Studio {
+  id: ID!
+  logo: ActiveStorageAttached
+  name: String!
+}
